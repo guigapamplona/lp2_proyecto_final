@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -82,7 +83,7 @@ public class SesionCliente extends Sesion {
             return servicios;
         }
     }
-    public int pagarServicio(Servicio servicio, double monto, String pinTransferencia) throws SesionExpiradaException {
+    public int pagarServicio(Servicio servicio, String pinTransferencia) throws SesionExpiradaException {
         if(!marcarActividad()){ //marcar actividad para que no se cierre la sesión por inactividad y verificar si no se cerró antes
             throw new SesionExpiradaException();
         }
@@ -94,10 +95,13 @@ public class SesionCliente extends Sesion {
                 Transferencia transferencia = new Transferencia(((CuentaCliente)getCuenta()), new CuentaCliente("", null, servicio.getCuentaNr()), 
                         Transferencia.SERVICIO, servicio.getMonto());
                 transferencia.setSesion(this);
-                transferencia.efectuar();
-                transferencia.guardar();
-                Mensaje.crearMensajeConfirmacion("servicioPagadoTitulo", "servicioPagado");
-                return 0;
+                if(transferencia.efectuar() == 0) {
+                    transferencia.guardar();
+                    Object[] detalles = {new Date(), cuenta.getNroCuenta(), servicio.getNombre(), servicio.getMonto()};
+                    Mensaje.crearMensajeConfirmacion("servicioPagadoTitulo", "servicioPagado", detalles);
+                    return 0;
+                }
+                return -1;
             } else {
                 Mensaje.crearMensajeError("pinNoValidoTitulo", "pinTransferenciaNoValido");
                 return -2;
@@ -116,12 +120,34 @@ public class SesionCliente extends Sesion {
         try {
             if(PasswordStorage.verifyPassword(pin, ((CuentaCliente)getCuenta()).getTransHash())) {
                 ((CuentaCliente)getCuenta()).setSaldo(obtenerSaldo()); //actualizar saldo disponible
+
+                //verificar cuenta destino existe y es cuenta cliente
+                try(PreparedStatement stmt = getConexion().getConnection().prepareStatement("SELECT pinTransferencia FROM Cuenta WHERE nrCuenta = ?;")) {
+                    stmt.setInt(1, nrCuenta);
+                    ResultSet rs = stmt.executeQuery();
+                    if(!rs.next()) {
+                        Mensaje.crearMensajeError("cuentaNoEncontradaTitulo", "cuentaNoEncontrada");
+                        return -1;
+                    }
+                    //verificar cuenta cliente
+                    rs.getString("pinTransferencia");
+                    if(rs.wasNull()) {
+                        Mensaje.crearMensajeError("cuentaNoEncontradaTitulo", "cuentaNoEncontrada");
+                        return -1;
+                    }
+                } catch(SQLException ex) {
+                    Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
+                    return -3;
+                }
                 
                 Transferencia transferencia = new Transferencia(((CuentaCliente)getCuenta()), new CuentaCliente("", null, nrCuenta), Transferencia.ENTRE_CUENTAS, monto);
                 transferencia.setSesion(this);
-                transferencia.efectuar();
-                transferencia.guardar();
-                return 0;
+                if(transferencia.efectuar() == 0) {
+                    transferencia.guardar();
+                    Object[] detalles = {new Date(), cuenta.getNroCuenta(), nrCuenta, monto};
+                    Mensaje.crearMensajeConfirmacion("transferenciaRealizadaTitulo", "transferenciaRealizada", detalles);
+                    return 0;
+                }else return -1;
             } else {
                 Mensaje.crearMensajeError("pinNoValidoTitulo", "pinTransferenciaNoValido");
                 return -2;

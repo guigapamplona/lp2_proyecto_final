@@ -13,9 +13,9 @@ import ui.Mensaje;
  * @author Manuel René Pauls Toews
  */
 public final class Transferencia extends DBObject {
-    public static final int DEPOSITO = 1;
-    public static final int ENTRE_CUENTAS = 2;
-    public static final int SERVICIO = 3;
+    public static final int ENTRE_CUENTAS = 1;
+    public static final int SERVICIO = 2;
+    public static final  int DEPOSITO = 3;
     
     private CuentaCliente cuentaReceptora, cuentaEmisora;
     private double monto;
@@ -94,7 +94,6 @@ public final class Transferencia extends DBObject {
                 return 0;
             }
         } catch(SQLException e) {
-            e.printStackTrace();
             Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
             return -1;
         } finally { 
