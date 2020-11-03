@@ -9,8 +9,8 @@ import password_hashing.PasswordStorage;
 import password_hashing.PasswordStorage.CannotPerformOperationException;
 
 /**
- *
- * @author Manuel René Pauls Toews
+ * Mantienen una conexion a base de datos.<br>
+ * Como es una simulación con Base de Datos en archivo, hemos decidido por no cerrar la conexión mientras esta corriendo el programa
  */
 public class ConexionDB {
     private Connection conn;
@@ -23,6 +23,10 @@ public class ConexionDB {
         }
     }
     
+    /**
+     * Crea la conexión si no existe o reutiliza una que ya fue creada
+     * @return conexión a base de datos
+     */
     public Connection getConnection() {
         if(conn != null) return conn;
         try {
@@ -34,6 +38,11 @@ public class ConexionDB {
         }
     }
     
+    /**
+     * Conecta a base de datos si existe.<br>
+     * Si no existe la crea con datos de prueba.
+     * @throws SQLException 
+     */
     private void connect() throws SQLException {
         boolean dbNueva;
         File f = new File("simulacion_web_banking.db");
@@ -44,6 +53,9 @@ public class ConexionDB {
         if(dbNueva) crearDbPrueba();
     }
     
+    /**
+     * Crea una nueva base de datos con datos prueba.
+     */
     private void crearDbPrueba(){
         System.out.println("Creando base de datos para pruebas...");
         String[] stmtStrings = {
@@ -139,12 +151,12 @@ public class ConexionDB {
                 + "('Arturo', 'Jara', 'otraPersona@noexiste.com', '123 45 67 89', 'Planeta Tierra', 9876543, 1), "
                 + "('Administrador', 'BNDE', 'noRespondemos@bnde.com.py', '0493 240 438', 'Asuncion', 1234567, 0);",
             "INSERT INTO Cuenta (nrCuenta, titular, contrasenha, pinTransferencia, saldo) VALUES "
-                + "(1, 5708234, '"+contrasenhas[0]+"', NULL,0), "
-                + "(2, 5708234, '"+contrasenhas[1]+"', '"+contrasenhas[6]+"',1000000), "
-                + "(3, 2345678, '"+contrasenhas[2]+"', '"+contrasenhas[7]+"',47000000), "
-                + "(4, 9876543, '"+contrasenhas[3]+"', NULL,0), "
-                + "(5, 1234567, '"+contrasenhas[4]+"', '"+contrasenhas[8]+"',5000000), "
-                + "(6, 9876543, '"+contrasenhas[5]+"', '"+contrasenhas[9]+"',500000);",
+                + "(584648, 5708234, '"+contrasenhas[0]+"', NULL,0), "
+                + "(456821, 5708234, '"+contrasenhas[1]+"', '"+contrasenhas[6]+"',1000000), "
+                + "(548224, 2345678, '"+contrasenhas[2]+"', '"+contrasenhas[7]+"',47000000), "
+                + "(457236, 9876543, '"+contrasenhas[3]+"', NULL,0), "
+                + "(878321, 1234567, '"+contrasenhas[4]+"', '"+contrasenhas[8]+"',5000000), "
+                + "(785124, 9876543, '"+contrasenhas[5]+"', '"+contrasenhas[9]+"',500000);",
             "INSERT INTO Servicio (nombre, descripcion, iconoPath, monto, cuenta) VALUES "
                 + "('Servicio 1', '', 'servicio_ejemplo1_32.png', 10000, 5), "
                 + "('Servicio 2', '', 'servicio_ejemplo2_32.png', 50000, 6),"

@@ -2,30 +2,25 @@
 package logic;
 
 import ui.Reporte;
-import java.awt.event.ActionEvent;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import logic.excepciones.SesionExpiradaException;
 import password_hashing.PasswordStorage;
 import ui.Mensaje;
 
-/**
- *
- * @author Manuel René Pauls Toews
- */
 public class SesionCliente extends Sesion {
     
     @Override
     protected void verificarTiempoSesion() {
-        if(viva && tiempoCreacion.getTime() - System.currentTimeMillis() > SistemaSeguridad.T_MAX_SESION_CLIENTE) {
+        if(viva && System.currentTimeMillis() - tiempoCreacion.getTime() > SistemaSeguridad.T_MAX_SESION_CLIENTE) {
             destruirSesion();
+            viva = false;
         }
     }
 
@@ -56,6 +51,11 @@ public class SesionCliente extends Sesion {
         }
     }
     
+    /**
+     * Obtiene la lista de servicio que existen en la base de datos
+     * @return 
+     * @throws SesionExpiradaException 
+     */
     public List<Servicio> obtenerListaServicio() throws SesionExpiradaException {
         if(!marcarActividad()){ //marcar actividad para que no se cierre la sesión por inactividad y verificar si no se cerró antes
             throw new SesionExpiradaException();
@@ -159,9 +159,113 @@ public class SesionCliente extends Sesion {
         }
     }
     
-    public Reporte generarReporte() {
-        Reporte report = new Reporte();
+    /**
+     * Genera un reporte en formato de PDF
+     * @param report el pdf a llenar con datos
+     * @return 0 en caso de éxito, código error en otro caso
+     * @throws SesionExpiradaException 
+     */
+    public int generarReporte(Reporte report) throws SesionExpiradaException {
+        report.addTituloPrincipal(Integer.toString(getCuenta().getNroCuenta()));
+        report.addDatosCliente(getCuenta().getTitular().getNombreCompleto(), Integer.toString(getCuenta().getNroCuenta()), String.format("%.2f", obtenerSaldo()));
         
-        report.addTituloPrincipal();
+        LinkedList<LinkedList<String>> transferencias = new LinkedList<>();
+        String[] titulos = {
+            report.app.getLanguage().getString("id"),
+            report.app.getLanguage().getString("cuenta"),
+            report.app.getLanguage().getString("monto")
+        };
+        
+        //traer transferencias de esta cuenta a otra de base de datos
+        try(PreparedStatement stmt = getConexion().getConnection().prepareStatement("SELECT * FROM Transferencia WHERE envia = ? AND tipo = ?;")) {
+            stmt.setInt(1, getCuenta().getNroCuenta());
+            stmt.setInt(2, Transferencia.ENTRE_CUENTAS);
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                LinkedList<String> linea = new LinkedList<>();
+                linea.add(Integer.toString(rs.getInt("id")));
+                linea.add(Integer.toString(rs.getInt("recibe")));
+                linea.add(String.format("%.2f", rs.getDouble("monto")));
+                transferencias.add(linea);
+            }
+        } catch(SQLException ex) {
+            Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
+            report.cerrar();
+            return -3;
+        }
+        if(transferencias.size() > 0)
+            report.addTabla("transferenciasRealizadas", titulos, transferencias);
+        
+        
+        //traer transferencias de otra cuenta a esta de base de datos
+        transferencias = new LinkedList<>();
+        try(PreparedStatement stmt = getConexion().getConnection().prepareStatement("SELECT * FROM Transferencia WHERE recibe = ? AND tipo = ?;")) {
+            stmt.setInt(1, getCuenta().getNroCuenta());
+            stmt.setInt(2, Transferencia.ENTRE_CUENTAS);
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                LinkedList<String> linea = new LinkedList<>();
+                linea.add(Integer.toString(rs.getInt("id")));
+                linea.add(Integer.toString(rs.getInt("envia")));
+                linea.add(String.format("%.2f", rs.getDouble("monto")));
+                transferencias.add(linea);
+            }
+        } catch(SQLException ex) {
+            Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
+            report.cerrar();
+            return -3;
+        }
+        if(transferencias.size() > 0)
+            report.addTabla("transferenciasRecibidas", titulos, transferencias);
+        
+        //traer pagos de servicio realizados con esta cuenta de base de datos
+        //actualizar títulos de columnas
+        titulos = new String[]{
+            report.app.getLanguage().getString("id"),
+            report.app.getLanguage().getString("monto")
+        };
+        transferencias = new LinkedList<>();
+        try(PreparedStatement stmt = getConexion().getConnection().prepareStatement("SELECT * FROM Transferencia WHERE envia = ? AND tipo = ?;")) {
+            stmt.setInt(1, getCuenta().getNroCuenta());
+            stmt.setInt(2, Transferencia.SERVICIO);
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                LinkedList<String> linea = new LinkedList<>();
+                linea.add(Integer.toString(rs.getInt("id")));
+                linea.add(String.format("%.2f", rs.getDouble("monto")));
+                transferencias.add(linea);
+            }
+        } catch(SQLException ex) {
+            Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
+            report.cerrar();
+            return -3;
+        }
+        
+        if(transferencias.size() > 0)
+            report.addTabla("transferenciasAServicios", titulos, transferencias);
+        
+        //traer depósitos en esta cuenta
+        transferencias = new LinkedList<>();
+        try(PreparedStatement stmt = getConexion().getConnection().prepareStatement("SELECT * FROM Transferencia WHERE recibe = ? AND tipo = ?;")) {
+            stmt.setInt(1, getCuenta().getNroCuenta());
+            stmt.setInt(2, Transferencia.DEPOSITO);
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                LinkedList<String> linea = new LinkedList<>();
+                linea.add(Integer.toString(rs.getInt("id")));
+                linea.add(String.format("%.2f", rs.getDouble("monto")));
+                transferencias.add(linea);
+            }
+        } catch(SQLException ex) {
+            Mensaje.crearMensajeError("dbErrorTitulo", "dbErrorMensaje");
+            report.cerrar();
+            return -3;
+        }
+        if(transferencias.size() > 0)
+            report.addTabla("deposito", titulos, transferencias);
+        
+        report.cerrar();
+        
+        return 0;
     }
 }

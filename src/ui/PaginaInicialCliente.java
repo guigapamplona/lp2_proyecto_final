@@ -5,13 +5,8 @@ import java.awt.*;
 import java.text.MessageFormat;
 import javax.swing.*;
 
-/**
- *
- * @author Manuel René Pauls Toews
- */
 public final class PaginaInicialCliente extends InnerGui {
     private final JPanel[] lineas = new JPanel[8];
-    private String nombre = "Jane Doe";
     private JLabel titulo, titulo2;
     private JButton transferenciaBtn, pagarServicioBtn, informeBtn, saldoBtn;
     private final App app;
@@ -39,6 +34,8 @@ public final class PaginaInicialCliente extends InnerGui {
         informeBtn.setPreferredSize(new Dimension(400, 100));
         informeBtn.setFont(new Font(titulo.getName(), Font.PLAIN, 30));
         informeBtn.setIcon(new ImageIcon("iconos/informe_32.png"));
+        informeBtn.setActionCommand(App.REPORTE);
+        informeBtn.addActionListener(app);
         lineas[3].add(informeBtn);
         pagarServicioBtn = new JButton(app.getLanguage().getString("pagarServicio"));
         pagarServicioBtn.setPreferredSize(new Dimension(400, 100));

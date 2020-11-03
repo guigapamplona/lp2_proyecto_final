@@ -15,15 +15,14 @@ import logic.Cuenta;
 import logic.CuentaEmpleado;
 import logic.Empleado;
 import logic.Sesion;
+import logic.SesionCliente;
 import logic.SesionEmpleado;
 import logic.excepciones.AuthentificationException;
 import logic.excepciones.BlockedAccountException;
+import logic.excepciones.SesionExpiradaException;
 
-/**
- *
- * @author Manuel René Pauls Toews
- */
 public class App implements ActionListener {
+    //constatentes de acciones
     public static final String FORMULARIO_INICIO_SESION = "incicio sesion";
     public static final String FORMULARIO_PAGAR_SERVICIO = "pago servicio";
     public static final String FORMULARIO_TRANSFERENCIA = "transferencia";
@@ -37,6 +36,7 @@ public class App implements ActionListener {
     public static final String CERRAR_SESION = "cerrar sesion";
     public static final String CAMBIAR_LENGUAJE = "cambiar lenguaje";
     public static final String TUTORIAL = "mostrar tutorial";
+    public static final String REPORTE = "generar reporte";
     
     private final OuterGui outer;
     private ResourceBundle languages;
@@ -48,6 +48,11 @@ public class App implements ActionListener {
         outer = new OuterGui(this);
     }
     
+    /**
+     * Retorna idioma utilizado.<br>
+     * Detecta idioma de sistema si no esta configurado todavía y lo intenta configurar. Si no es soportado usa español
+     * @return 
+     */
     public ResourceBundle getLanguage() {
         if(languages == null) {
             languages = ListResourceBundle.getBundle("idiomas.language");
@@ -109,6 +114,22 @@ public class App implements ActionListener {
                     try {
                         File myFile = new File("./src/tutorial/"+getLanguage().getString("tutorialArchivo"));
                         Desktop.getDesktop().open(myFile);
+                    } catch (IOException ex) {
+                        Mensaje.crearMensajeError("pdfOpenErrorTitulo", "pdfOpenError");
+                    }
+                }
+                break;
+            case REPORTE:
+                Reporte report = new Reporte(this);
+                try {
+                    ((SesionCliente)sesion).generarReporte(report);
+                }  catch (SesionExpiradaException ex) {
+                    actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, App.CERRAR_SESION));
+                    return;
+                }
+                if (Desktop.isDesktopSupported()) {
+                    try {
+                        Desktop.getDesktop().open(report.file);
                     } catch (IOException ex) {
                         Mensaje.crearMensajeError("pdfOpenErrorTitulo", "pdfOpenError");
                     }
